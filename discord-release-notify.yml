@@ -1,0 +1,35 @@
+name: Discord Release Notification
+
+on:
+  release:
+    types: [published]
+
+jobs:
+  notify:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Send release notification to Discord
+        env:
+          DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
+          RELEASE_VERSION: ${{ github.event.release.tag_name }}
+          RELEASE_BODY: ${{ github.event.release.body }}
+        run: |
+          if [ -z "$DISCORD_WEBHOOK_URL" ]; then
+            echo "DISCORD_WEBHOOK_URL secret is missing."
+            exit 1
+          fi
+
+          if [ -z "$RELEASE_BODY" ]; then
+            RELEASE_BODY="No change logs added."
+          fi
+
+          payload=$(jq -n \
+            --arg version "$RELEASE_VERSION" \
+            --arg logs "$RELEASE_BODY" \
+            '{
+              "content": ("New Update\nVersion: " + $version + "\nRestart your tool and update new version\nChange Logs: " + $logs)
+            }')
+
+          curl -sS -X POST "$DISCORD_WEBHOOK_URL" \
+            -H "Content-Type: application/json" \
+            -d "$payload"
